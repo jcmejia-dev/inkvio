@@ -2,5 +2,8 @@
   "name":"inkvio",
   "private":true,
   "type":"module",
-  "dependencies":{"@neondatabase/serverless":"^1.0.2"}
+  "dependencies":{
+    "@neondatabase/serverless":"^1.0.2",
+    "@vercel/blob":"^2.0.0"
+  }
 }
