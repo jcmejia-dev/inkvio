@@ -5,38 +5,36 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Inkvio — Print Shop Business OS</title>
   <meta name="description" content="Inkvio is a smart print shop management SaaS for orders, quotations, design approvals, production, inventory, payments and analytics." />
+  <link rel="icon" type="image/svg+xml" href="assets/inkvio-mark.svg" />
+  <link rel="apple-touch-icon" href="assets/inkvio-mark.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <section class="auth-screen" id="authScreen">
-    <div class="auth-visual">
-      <div class="aurora a1"></div><div class="aurora a2"></div><div class="grain"></div>
-      <div class="auth-brand"><div class="brand-mark">I</div><div><b>Inkvio</b><span>Print Business OS</span></div></div>
-      <div class="visual-copy"><span class="live-chip"><i></i> YOUR SHOP, IN MOTION</span><h1>From message<br>to <em>finished print.</em></h1><p>Orders, artwork, production and payments flowing through one beautiful workspace.</p></div>
-      <div class="flow-demo">
-        <div class="flow-card fc1"><span>01</span><div><small>NEW ORDER</small><b>Birthday Tarpaulin</b><p>Messenger · 3 × 5 ft</p></div><i>₱450</i></div>
-        <div class="flow-line"><i></i></div>
-        <div class="flow-card fc2"><span>02</span><div><small>DESIGN APPROVED</small><b>Ready for production</b><p>Customer approved just now</p></div><i>✓</i></div>
-        <div class="flow-line"><i></i></div>
-        <div class="flow-card fc3"><span>03</span><div><small>PRINTING</small><b>Production started</b><p>Queue position #1</p></div><i class="pulse-print">●</i></div>
+  <section class="auth-screen clean-auth" id="authScreen">
+    <header class="clean-auth-header">
+      <div class="clean-logo"><img src="assets/inkvio-mark.svg" alt=""><div><b>INKVIO</b><span>PRINT BUSINESS OS</span></div></div>
+      <div class="header-login" id="headerLogin">Already have an account? <button type="button" onclick="setAuthMode('login')">Login</button></div>
+    </header>
+    <div class="auth-side clean-auth-side">
+      <div class="auth-panel" id="authPanel">
+        <div class="auth-kicker">LET'S GET STARTED</div>
+        <h2 id="authTitle"></h2><p id="authSubtitle"></p>
+        <div class="onboard-progress" id="onboardProgress"></div>
+        <form id="authForm"></form>
+        <div class="auth-switch" id="authSwitch"></div>
       </div>
-      <div class="auth-foot">Built for independent print shops and growing production teams.</div>
     </div>
-    <div class="auth-side">
-      <div class="auth-panel" id="authPanel"><div class="mobile-auth-brand"><div class="brand-mark">I</div><b>Inkvio</b></div><div class="auth-kicker">INKVIO WORKSPACE</div><h2 id="authTitle"></h2><p id="authSubtitle"></p><form id="authForm"></form><div class="auth-switch" id="authSwitch"></div><div class="secure-note"><span>◆</span> Your workspace stays private to your shop</div></div>
-    </div>
+    <div class="auth-landscape" aria-hidden="true"><span class="hill h1"></span><span class="hill h2"></span><span class="shop-doodle">▱</span><span class="van-doodle">▭</span></div>
     <div class="auth-toast" id="authToast"></div>
   </section>
 
   <div class="app-shell" hidden>
     <aside class="sidebar">
-      <div class="brand-wrap"><div class="brand-mark">I</div><div><div class="brand">Inkvio</div><div class="brand-sub">Print Business OS</div></div></div>
+      <div class="brand-wrap"><img class="brand-logo-img" src="assets/inkvio-mark.svg" alt="Inkvio"><div><div class="brand">Inkvio</div><div class="brand-sub">Print Business OS</div></div></div>
       <div class="shop-switcher"><div class="shop-icon">PS</div><div class="shop-copy"><strong>My Print Shop</strong><span>Main branch</span></div><button class="icon-btn" aria-label="Switch shop">⌄</button></div>
-      <nav class="nav" id="nav">
-        <button class="nav-item active" data-view="dashboard"><span>⌂</span>Dashboard</button><button class="nav-item" data-view="orders"><span>▤</span>Orders <b class="pill">12</b></button><button class="nav-item" data-view="design"><span>✦</span>Design Queue <b class="pill warn">5</b></button><button class="nav-item" data-view="production"><span>▦</span>Print Queue <b class="pill teal">7</b></button><button class="nav-item" data-view="customers"><span>◎</span>Customers</button><button class="nav-item" data-view="catalog"><span>◫</span>Products & Services</button><button class="nav-item" data-view="inventory"><span>◈</span>Inventory</button><button class="nav-item" data-view="payments"><span>₱</span>Payments</button><button class="nav-item" data-view="reports"><span>◒</span>Reports</button>
-      </nav>
+      <nav class="nav" id="nav"><button class="nav-item active" data-view="dashboard"><span>⌂</span>Dashboard</button><button class="nav-item" data-view="orders"><span>▤</span>Orders <b class="pill">12</b></button><button class="nav-item" data-view="design"><span>✦</span>Design Queue <b class="pill warn">5</b></button><button class="nav-item" data-view="production"><span>▦</span>Print Queue <b class="pill teal">7</b></button><button class="nav-item" data-view="customers"><span>◎</span>Customers</button><button class="nav-item" data-view="catalog"><span>◫</span>Products & Services</button><button class="nav-item" data-view="inventory"><span>◈</span>Inventory</button><button class="nav-item" data-view="payments"><span>₱</span>Payments</button><button class="nav-item" data-view="reports"><span>◒</span>Reports</button></nav>
       <div class="sidebar-bottom"><button class="nav-item" data-view="settings"><span>⚙</span>Settings</button><div class="user-card"><div class="avatar">OW</div><div><strong>Owner</strong><span>Owner</span></div><button class="icon-btn" onclick="inkvioLogout()" title="Sign out">↪</button></div></div>
     </aside>
     <main class="main"><header class="topbar"><div><p class="eyebrow">FRIDAY, OCTOBER 31</p><h1 id="pageTitle">Good morning.</h1><p id="pageSubtitle">Here’s what’s happening in your print shop today.</p></div><div class="top-actions"><button class="soft-btn" id="quickQuoteBtn">＋ Quick quotation</button><button class="primary-btn" id="newOrderBtn">＋ New order</button><button class="round-btn" id="notificationBtn">♢<span class="notify-dot"></span></button></div></header><section id="viewContainer"></section></main>
