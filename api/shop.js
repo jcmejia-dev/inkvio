@@ -16,11 +16,13 @@ export default async function handler(req,res){
    if(ownerKey){
     const shops=await sql`SELECT id,slug,business_name,owner_name,theme,dashboard_config FROM shops WHERE owner_key=${ownerKey} LIMIT 1`;
     if(!shops.length)return json(res,404,{error:'Shop not found'}); const shop=shops[0];
-    const [orders,services,customers]=await Promise.all([
+    const [orders,services,customers,files]=await Promise.all([
      sql`SELECT id,order_number,customer_id,customer_name,customer_phone,service,details,amount,status,due_text,source,created_at FROM orders WHERE shop_id=${shop.id} ORDER BY created_at DESC`,
      sql`SELECT id,name,description,pricing_type,price,unit_label,active FROM services WHERE shop_id=${shop.id} ORDER BY active DESC,name`,
-     sql`SELECT c.id,c.name,c.phone,c.notes,c.created_at,COUNT(o.id)::int AS order_count,COALESCE(SUM(o.amount),0)::numeric AS total_value FROM customers c LEFT JOIN orders o ON o.customer_id=c.id WHERE c.shop_id=${shop.id} GROUP BY c.id ORDER BY c.name`
+     sql`SELECT c.id,c.name,c.phone,c.notes,c.created_at,COUNT(o.id)::int AS order_count,COALESCE(SUM(o.amount),0)::numeric AS total_value FROM customers c LEFT JOIN orders o ON o.customer_id=c.id WHERE c.shop_id=${shop.id} GROUP BY c.id ORDER BY c.name`,
+     sql`SELECT f.id,f.order_id,f.file_name,f.mime_type,f.file_size FROM order_files f WHERE f.shop_id=${shop.id} ORDER BY f.id`
     ]);
+    const byOrder=new Map();for(const f of files){const k=String(f.order_id);if(!byOrder.has(k))byOrder.set(k,[]);byOrder.get(k).push({id:f.id,file_name:f.file_name,mime_type:f.mime_type,file_size:f.file_size})}for(const o of orders)o.files=byOrder.get(String(o.id))||[];
     return json(res,200,{shop,orders,services,customers});
    }
    if(!slug)return json(res,400,{error:'Shop URL is required'});
