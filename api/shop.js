@@ -1,8 +1,12 @@
 import { neon } from '@neondatabase/serverless';
+import crypto from 'node:crypto';
 const json=(res,status,data)=>{res.status(status).setHeader('Content-Type','application/json');res.setHeader('Cache-Control','no-store');return res.end(JSON.stringify(data))};
 const cleanSlug=v=>String(v||'').toLowerCase().trim().replace(/[^a-z0-9-]+/g,'-').replace(/^-+|-+$/g,'').slice(0,48);
 const clean=(v,n=500)=>String(v||'').trim().slice(0,n);
 const price=v=>Math.max(0,Number(v)||0);
+const token=()=>crypto.randomBytes(24).toString('hex');
+const tokenHash=v=>crypto.createHash('sha256').update(String(v||'')).digest('hex');
+async function ensureGuestAccess(sql){await sql`CREATE TABLE IF NOT EXISTS customer_access_tokens (id BIGSERIAL PRIMARY KEY, shop_id BIGINT NOT NULL, customer_id BIGINT NOT NULL, token_hash TEXT UNIQUE NOT NULL, created_at TIMESTAMPTZ DEFAULT NOW(), last_used_at TIMESTAMPTZ DEFAULT NOW())`;await sql`CREATE INDEX IF NOT EXISTS idx_customer_access_shop_customer ON customer_access_tokens(shop_id,customer_id)`}
 export default async function handler(req,res){
  if(!process.env.DATABASE_URL)return json(res,503,{error:'Database is not connected yet.'});
  const sql=neon(process.env.DATABASE_URL);
@@ -22,6 +26,8 @@ export default async function handler(req,res){
    if(!slug)return json(res,400,{error:'Shop URL is required'});
    const shops=await sql`SELECT id,slug,business_name,theme FROM shops WHERE slug=${slug} LIMIT 1`;
    if(!shops.length)return json(res,404,{error:'This shop link does not exist.'}); const shop=shops[0];
+   const access=clean(req.query.access,128);
+   if(access){await ensureGuestAccess(sql);const rows=await sql`SELECT customer_id FROM customer_access_tokens WHERE shop_id=${shop.id} AND token_hash=${tokenHash(access)} LIMIT 1`;if(!rows.length)return json(res,403,{error:'This private order-history key is invalid.'});await sql`UPDATE customer_access_tokens SET last_used_at=NOW() WHERE token_hash=${tokenHash(access)}`;const orders=await sql`SELECT order_number,service,details,amount,status,due_text,created_at FROM orders WHERE shop_id=${shop.id} AND customer_id=${rows[0].customer_id} ORDER BY created_at DESC`;return json(res,200,{shop:{slug:shop.slug,business_name:shop.business_name,theme:shop.theme},orders})}
    const services=await sql`SELECT id,name,description,pricing_type,price,unit_label FROM services WHERE shop_id=${shop.id} AND active=TRUE ORDER BY name`;
    return json(res,200,{shop:{slug:shop.slug,business_name:shop.business_name,theme:shop.theme},services});
   }
@@ -34,26 +40,24 @@ export default async function handler(req,res){
    return json(res,201,{shop:rows[0]});
   }
   if(req.method==='POST'&&body.action==='public-order'){
-   const slug=cleanSlug(body.slug),customer=clean(body.customer),phone=clean(body.phone),service=clean(body.service),details=clean(body.details);
+   const slug=cleanSlug(body.slug),customer=clean(body.customer),phone=clean(body.phone),service=clean(body.service),details=clean(body.details,2000);
    if(!slug||!customer||!service)return json(res,400,{error:'Your name and print job are required.'});
    const shops=await sql`SELECT id FROM shops WHERE slug=${slug} LIMIT 1`; if(!shops.length)return json(res,404,{error:'This shop link does not exist.'}); const shopId=shops[0].id;
-   let customers=await sql`SELECT id FROM customers WHERE shop_id=${shopId} AND lower(name)=lower(${customer}) ORDER BY created_at LIMIT 1`;
-   let customerId;if(customers.length){customerId=customers[0].id;if(phone)await sql`UPDATE customers SET phone=COALESCE(NULLIF(${phone},''),phone),updated_at=NOW() WHERE id=${customerId}`}else{const c=await sql`INSERT INTO customers(shop_id,name,phone) VALUES(${shopId},${customer},NULLIF(${phone},'')) RETURNING id`;customerId=c[0].id}
-   const svc=await sql`SELECT name,price,pricing_type FROM services WHERE shop_id=${shopId} AND id::text=${clean(body.serviceId)} AND active=TRUE LIMIT 1`;
-   const serviceName=svc.length?svc[0].name:service; const amount=svc.length&&['fixed','per_item'].includes(svc[0].pricing_type)?price(svc[0].price)*Math.max(1,Number(body.quantity)||1):0;
+   const access=clean(body.access,128);let customerId=null;
+   if(access){await ensureGuestAccess(sql);const a=await sql`SELECT customer_id FROM customer_access_tokens WHERE shop_id=${shopId} AND token_hash=${tokenHash(access)} LIMIT 1`;if(a.length)customerId=a[0].customer_id}
+   if(!customerId){let customers=phone?await sql`SELECT id FROM customers WHERE shop_id=${shopId} AND phone=${phone} ORDER BY created_at LIMIT 1`:[];if(!customers.length)customers=await sql`SELECT id FROM customers WHERE shop_id=${shopId} AND lower(name)=lower(${customer}) ORDER BY created_at LIMIT 1`;if(customers.length)customerId=customers[0].id;else{const c=await sql`INSERT INTO customers(shop_id,name,phone) VALUES(${shopId},${customer},NULLIF(${phone},'')) RETURNING id`;customerId=c[0].id}}
+   if(phone)await sql`UPDATE customers SET phone=COALESCE(NULLIF(${phone},''),phone),updated_at=NOW() WHERE id=${customerId}`;
+   const svc=await sql`SELECT name,price,pricing_type,unit_label FROM services WHERE shop_id=${shopId} AND id::text=${clean(body.serviceId)} AND active=TRUE LIMIT 1`;
+   const serviceName=svc.length?svc[0].name:service,q=Math.max(1,Number(body.quantity)||1);let amount=0;if(svc.length){const p=price(svc[0].price),type=svc[0].pricing_type,unit=String(svc[0].unit_label||'').toLowerCase();amount=(['per_item','per_page'].includes(type)||['item','items','page','pages','pc','pcs','piece','pieces'].includes(unit))?p*q:type==='fixed'?p:0}
    const number='INK-'+Date.now().toString().slice(-7);
    await sql`INSERT INTO orders(shop_id,customer_id,order_number,customer_name,customer_phone,service,details,amount,status,due_text,source) VALUES(${shopId},${customerId},${number},${customer},${phone},${serviceName},${details},${amount},'pending','To schedule','customer-link')`;
-   return json(res,201,{ok:true,orderNumber:number,amount});
+   await ensureGuestAccess(sql);let raw=access;if(!raw){raw=token();await sql`INSERT INTO customer_access_tokens(shop_id,customer_id,token_hash) VALUES(${shopId},${customerId},${tokenHash(raw)})`}
+   return json(res,201,{ok:true,orderNumber:number,amount,access:raw});
   }
   const ownerKey=clean(req.headers['x-owner-key']);if(!ownerKey)return json(res,401,{error:'Owner access required'});
   const shops=await sql`SELECT id,slug FROM shops WHERE owner_key=${ownerKey} LIMIT 1`;if(!shops.length)return json(res,401,{error:'Shop access not found'});const shop=shops[0];
-  if(req.method==='POST'&&body.action==='service'){
-   const name=clean(body.name),pricingType=['fixed','per_item','per_page','per_sqft','custom'].includes(body.pricingType)?body.pricingType:'fixed',unit=clean(body.unit)||'item';if(!name)return json(res,400,{error:'Service name is required.'});
-   await sql`INSERT INTO services(shop_id,name,description,pricing_type,price,unit_label,active) VALUES(${shop.id},${name},${clean(body.description)},${pricingType},${price(body.price)},${unit},TRUE) ON CONFLICT(shop_id,name) DO UPDATE SET description=EXCLUDED.description,pricing_type=EXCLUDED.pricing_type,price=EXCLUDED.price,unit_label=EXCLUDED.unit_label,active=TRUE,updated_at=NOW()`;return json(res,201,{ok:true});
-  }
-  if(req.method==='PATCH'&&body.action==='service'){
-   await sql`UPDATE services SET name=${clean(body.name)},description=${clean(body.description)},pricing_type=${body.pricingType},price=${price(body.price)},unit_label=${clean(body.unit)||'item'},active=${body.active!==false},updated_at=NOW() WHERE id::text=${clean(body.id)} AND shop_id=${shop.id}`;return json(res,200,{ok:true});
-  }
+  if(req.method==='POST'&&body.action==='service'){const name=clean(body.name),pricingType=['fixed','per_item','per_page','per_sqft','custom'].includes(body.pricingType)?body.pricingType:'fixed',unit=clean(body.unit)||'item';if(!name)return json(res,400,{error:'Service name is required.'});await sql`INSERT INTO services(shop_id,name,description,pricing_type,price,unit_label,active) VALUES(${shop.id},${name},${clean(body.description)},${pricingType},${price(body.price)},${unit},TRUE) ON CONFLICT(shop_id,name) DO UPDATE SET description=EXCLUDED.description,pricing_type=EXCLUDED.pricing_type,price=EXCLUDED.price,unit_label=EXCLUDED.unit_label,active=TRUE,updated_at=NOW()`;return json(res,201,{ok:true})}
+  if(req.method==='PATCH'&&body.action==='service'){await sql`UPDATE services SET name=${clean(body.name)},description=${clean(body.description)},pricing_type=${body.pricingType},price=${price(body.price)},unit_label=${clean(body.unit)||'item'},active=${body.active!==false},updated_at=NOW() WHERE id::text=${clean(body.id)} AND shop_id=${shop.id}`;return json(res,200,{ok:true})}
   if(req.method==='DELETE'&&body.action==='service'){await sql`DELETE FROM services WHERE id::text=${clean(body.id)} AND shop_id=${shop.id}`;return json(res,200,{ok:true})}
   if(req.method==='POST'&&body.action==='customer'){const name=clean(body.name);if(!name)return json(res,400,{error:'Customer name is required.'});await sql`INSERT INTO customers(shop_id,name,phone,notes) VALUES(${shop.id},${name},NULLIF(${clean(body.phone)},''),NULLIF(${clean(body.notes)},''))`;return json(res,201,{ok:true})}
   if(req.method==='PATCH'&&body.action==='customer'){await sql`UPDATE customers SET name=${clean(body.name)},phone=NULLIF(${clean(body.phone)},''),notes=NULLIF(${clean(body.notes)},''),updated_at=NOW() WHERE id::text=${clean(body.id)} AND shop_id=${shop.id}`;return json(res,200,{ok:true})}
