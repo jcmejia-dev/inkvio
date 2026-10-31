@@ -1,0 +1,140 @@
+const seedOrders = [
+  {id:'INK-1048', customer:'Maria Santos', product:'Birthday Tarpaulin', details:'3 × 5 ft · 1 pc', amount:450, status:'printing', due:'Today · 3:30 PM'},
+  {id:'INK-1049', customer:'Rico Dela Cruz', product:'T-Shirt Printing', details:'12 pcs · Full color', amount:1800, status:'design', due:'Tomorrow · 10:00 AM'},
+  {id:'INK-1050', customer:'Janelle Reyes', product:'Business Cards', details:'100 pcs · Matte', amount:350, status:'ready', due:'Ready for pickup'},
+  {id:'INK-1051', customer:'ACME Foods', product:'Product Stickers', details:'250 pcs · Waterproof', amount:950, status:'pending', due:'Nov 2 · 1:00 PM'}
+];
+
+const state = {
+  orders: JSON.parse(localStorage.getItem('inkvio-orders') || 'null') || seedOrders,
+  inventory: JSON.parse(localStorage.getItem('inkvio-inventory') || 'null') || [
+    {item:'Tarpaulin Roll 10oz', stock:38, unit:'meters', level:'Good'},
+    {item:'A4 Photo Paper', stock:62, unit:'sheets', level:'Good'},
+    {item:'Black Pigment Ink', stock:1, unit:'bottle', level:'Low'},
+    {item:'White T-Shirts', stock:18, unit:'pcs', level:'Good'}
+  ]
+};
+
+const viewContainer = document.getElementById('viewContainer');
+const modalBackdrop = document.getElementById('modalBackdrop');
+const modal = document.getElementById('modal');
+const toast = document.getElementById('toast');
+
+function money(n){ return new Intl.NumberFormat('en-PH',{style:'currency',currency:'PHP',maximumFractionDigits:0}).format(n); }
+function persist(){ localStorage.setItem('inkvio-orders', JSON.stringify(state.orders)); localStorage.setItem('inkvio-inventory', JSON.stringify(state.inventory)); }
+function showToast(message){ toast.textContent=message; toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'),2200); }
+function statusLabel(s){ return ({design:'Designing',printing:'Printing',ready:'Ready',pending:'Pending'})[s] || s; }
+
+function renderDashboard(){
+  const sales = state.orders.reduce((a,o)=>a+Number(o.amount||0),0);
+  const printing = state.orders.filter(o=>o.status==='printing').length;
+  const ready = state.orders.filter(o=>o.status==='ready').length;
+  document.getElementById('pageTitle').textContent='Good morning, Jamie.';
+  document.getElementById('pageSubtitle').textContent='Here’s what’s happening in your print shop today.';
+  viewContainer.innerHTML = `
+    <div class="stats">
+      ${stat('Today’s sales',money(sales),'↗ 12.4% vs yesterday','₱')}
+      ${stat('Active orders',state.orders.length,'4 due today','▤')}
+      ${stat('Now printing',printing,'Production queue','▦')}
+      ${stat('Ready for pickup',ready,'Notify customers','✓')}
+    </div>
+    <div class="dashboard-grid">
+      <div>
+        <div class="card section-card">
+          <div class="section-head"><h2>Recent job orders</h2><button onclick="switchView('orders')">View all →</button></div>
+          <div class="order-list">${state.orders.slice(0,5).map(orderRow).join('')}</div>
+        </div>
+        <div class="revenue-box">
+          <div class="muted" style="color:#b6d2c4">THIS MONTH</div>
+          <div class="big">₱38,420</div>
+          <div class="bar"><i></i></div>
+          <div style="font-size:12px;color:#c6ded2">72% of ₱53,000 monthly target</div>
+        </div>
+      </div>
+      <div class="card section-card">
+        <div class="section-head"><h2>Production flow</h2><button onclick="switchView('production')">Open queue →</button></div>
+        <div class="pipeline">
+          ${pipe('Waiting for design','5 jobs','design')}
+          ${pipe('For approval','3 jobs','pending')}
+          ${pipe('Printing','7 jobs','printing')}
+          ${pipe('Finishing','2 jobs','pending')}
+          ${pipe('Ready for pickup','4 jobs','ready')}
+        </div>
+      </div>
+    </div>`;
+}
+
+function stat(label,value,sub,icon){return `<div class="card stat-card"><div class="stat-top"><span>${label}</span><b>${icon}</b></div><strong>${value}</strong><span class="delta">${sub}</span></div>`;}
+function pipe(title,sub,status){return `<div class="pipe-item"><i class="pipe-dot"></i><div><strong>${title}</strong><br><span>${sub}</span></div><span class="status ${status}" style="margin-left:auto">${statusLabel(status)}</span></div>`;}
+function orderRow(o){return `<div class="order-row"><div class="job-icon">▣</div><div><strong>${o.product}</strong><div class="muted">${o.id} · ${o.customer}</div></div><div class="hide-mobile"><strong>${money(o.amount)}</strong><div class="muted">${o.details}</div></div><div class="hide-mobile"><span class="muted">${o.due}</span></div><span class="status ${o.status}">${statusLabel(o.status)}</span></div>`;}
+
+function renderOrders(){
+  title('Orders','Manage walk-in, Messenger, phone, and online orders.');
+  viewContainer.innerHTML=`<div class="card table-card"><table class="table"><thead><tr><th>Job</th><th>Customer</th><th>Product</th><th>Due</th><th>Amount</th><th>Status</th></tr></thead><tbody>${state.orders.map(o=>`<tr><td><strong>${o.id}</strong></td><td>${o.customer}</td><td>${o.product}<div class="muted">${o.details}</div></td><td>${o.due}</td><td>${money(o.amount)}</td><td><select onchange="updateOrderStatus('${o.id}',this.value)"><option value="pending" ${o.status==='pending'?'selected':''}>Pending</option><option value="design" ${o.status==='design'?'selected':''}>Designing</option><option value="printing" ${o.status==='printing'?'selected':''}>Printing</option><option value="ready" ${o.status==='ready'?'selected':''}>Ready</option></select></td></tr>`).join('')}</tbody></table></div>`;
+}
+function renderQueue(kind){
+  const label=kind==='design'?'Design Queue':'Print Queue';
+  title(label,kind==='design'?'Review artwork jobs and customer approvals.':'Prioritize production work and move jobs to pickup.');
+  const relevant = kind==='design' ? state.orders.filter(o=>['design','pending'].includes(o.status)) : state.orders.filter(o=>['printing','ready'].includes(o.status));
+  viewContainer.innerHTML=`<div class="card section-card"><div class="order-list">${relevant.length?relevant.map(orderRow).join(''):'<div class="empty-view">Nothing queued right now.</div>'}</div></div>`;
+}
+function renderCustomers(){
+  title('Customers','Customer history, repeat orders, balances, and contact records.');
+  const names=[...new Set(state.orders.map(o=>o.customer))];
+  viewContainer.innerHTML=`<div class="card table-card"><table class="table"><thead><tr><th>Customer</th><th>Orders</th><th>Total spend</th><th>Last activity</th></tr></thead><tbody>${names.map(n=>{const os=state.orders.filter(o=>o.customer===n);return `<tr><td><strong>${n}</strong></td><td>${os.length}</td><td>${money(os.reduce((a,o)=>a+Number(o.amount),0))}</td><td>${os[os.length-1].due}</td></tr>`}).join('')}</tbody></table></div>`;
+}
+function renderCatalog(){
+  title('Products & Services','Configure services and shop-specific pricing rules.');
+  const items=[['Tarpaulin printing','Per square foot','₱25'],['T-Shirt printing','Per piece','₱150'],['Business cards','100 pcs','₱350'],['Sticker printing','Per sheet','₱80'],['Layout / design fee','Per design','₱100']];
+  viewContainer.innerHTML=`<div class="card table-card"><table class="table"><thead><tr><th>Service</th><th>Pricing basis</th><th>Starting price</th></tr></thead><tbody>${items.map(x=>`<tr><td><strong>${x[0]}</strong></td><td>${x[1]}</td><td>${x[2]}</td></tr>`).join('')}</tbody></table></div>`;
+}
+function renderInventory(){
+  title('Inventory','Track consumables and know what needs restocking before production stops.');
+  viewContainer.innerHTML=`<div class="card table-card"><table class="table"><thead><tr><th>Material</th><th>Stock</th><th>Level</th></tr></thead><tbody>${state.inventory.map(i=>`<tr><td><strong>${i.item}</strong></td><td>${i.stock} ${i.unit}</td><td><span class="status ${i.level==='Low'?'design':'ready'}">${i.level}</span></td></tr>`).join('')}</tbody></table></div>`;
+}
+function renderPayments(){
+  title('Payments','Track paid, partial, and unpaid job orders.');
+  viewContainer.innerHTML=`<div class="stats">${stat('Collected today','₱4,850','Cash + GCash','₱')}${stat('Outstanding','₱2,300','Across 6 jobs','!')}${stat('Deposits','₱1,650','8 partial payments','↙')}${stat('Avg. order','₱524','This month','◒')}</div>`;
+}
+function renderReports(){
+  title('Reports','Sales, profit, product performance, and operational insights.');
+  viewContainer.innerHTML=`<div class="dashboard-grid"><div class="card section-card"><div class="section-head"><h2>Top services</h2></div>${[['Tarpaulin',42],['T-Shirt',28],['Stickers',18],['Cards',12]].map(([n,v])=>`<div style="margin:15px 0"><div style="display:flex;justify-content:space-between"><strong>${n}</strong><span>${v}%</span></div><div class="bar" style="background:#e9efeb"><i style="width:${v}%"></i></div></div>`).join('')}</div><div class="card section-card"><h2>Operational insight</h2><p>Your busiest production window is 1–4 PM. Tarpaulin jobs generate the most revenue, while sticker orders have the fastest turnaround.</p><button class="primary-btn" onclick="showToast('Report exported as demo')">Export report</button></div></div>`;
+}
+function renderSettings(){
+  title('Settings','Business profile, pricing defaults, staff, notifications, and integrations.');
+  viewContainer.innerHTML=`<div class="card section-card"><div class="form-grid"><div class="field"><label>Business name</label><input value="Auntie's Print Hub"></div><div class="field"><label>Currency</label><select><option>PHP — Philippine Peso</option></select></div><div class="field"><label>Order prefix</label><input value="INK"></div><div class="field"><label>Default source</label><select><option>Messenger</option><option>Walk-in</option><option>Online form</option></select></div><div class="field full"><label>Customer status page</label><input value="inkvio.app/p/aunties-print-hub" readonly></div></div><div class="modal-actions"><button class="primary-btn" onclick="showToast('Settings saved locally')">Save settings</button></div></div>`;
+}
+
+function title(a,b){document.getElementById('pageTitle').textContent=a;document.getElementById('pageSubtitle').textContent=b;}
+function switchView(view){
+  document.querySelectorAll('.nav-item[data-view]').forEach(x=>x.classList.toggle('active',x.dataset.view===view));
+  ({dashboard:renderDashboard,orders:renderOrders,design:()=>renderQueue('design'),production:()=>renderQueue('production'),customers:renderCustomers,catalog:renderCatalog,inventory:renderInventory,payments:renderPayments,reports:renderReports,settings:renderSettings}[view]||renderDashboard)();
+}
+window.switchView=switchView;
+window.updateOrderStatus=(id,status)=>{const o=state.orders.find(x=>x.id===id);if(o){o.status=status;persist();showToast(`${id} moved to ${statusLabel(status)}`);renderOrders();}};
+
+document.querySelectorAll('.nav-item[data-view]').forEach(btn=>btn.addEventListener('click',()=>switchView(btn.dataset.view)));
+document.getElementById('newOrderBtn').addEventListener('click',openNewOrder);
+document.getElementById('quickQuoteBtn').addEventListener('click',openQuote);
+document.getElementById('notificationBtn').addEventListener('click',()=>showToast('4 jobs are ready for customer follow-up.'));
+modalBackdrop.addEventListener('click',e=>{if(e.target===modalBackdrop)closeModal();});
+
+function closeModal(){modalBackdrop.hidden=true;modal.innerHTML='';}
+function openNewOrder(){
+  modalBackdrop.hidden=false;
+  modal.innerHTML=`<h2>Create job order</h2><p>Use this for walk-ins, Messenger conversations, phone orders, or referrals.</p><form id="orderForm"><div class="form-grid"><div class="field"><label>Customer name</label><input name="customer" required placeholder="Customer name"></div><div class="field"><label>Order source</label><select name="source"><option>Messenger</option><option>Walk-in</option><option>Online form</option><option>Phone</option></select></div><div class="field"><label>Product / service</label><input name="product" required placeholder="e.g. Birthday Tarpaulin"></div><div class="field"><label>Amount</label><input name="amount" type="number" min="0" required placeholder="450"></div><div class="field"><label>Details</label><input name="details" placeholder="3 × 5 ft · 1 pc"></div><div class="field"><label>Due</label><input name="due" placeholder="Tomorrow · 3:00 PM"></div><div class="field full"><label>Notes from Messenger/customer</label><textarea name="notes" placeholder="Theme, names, print instructions, pickup details..."></textarea></div></div><div class="modal-actions"><button type="button" class="soft-btn" onclick="document.getElementById('modalBackdrop').hidden=true">Cancel</button><button class="primary-btn">Create order</button></div></form>`;
+  document.getElementById('orderForm').addEventListener('submit',e=>{
+    e.preventDefault(); const f=new FormData(e.target); const id='INK-'+(1050+state.orders.length+1);
+    state.orders.unshift({id,customer:f.get('customer'),product:f.get('product'),details:f.get('details')||f.get('source'),amount:Number(f.get('amount')),status:'pending',due:f.get('due')||'Not scheduled'});
+    persist(); closeModal(); switchView('orders'); showToast(`${id} created successfully`);
+  });
+}
+function openQuote(){
+  modalBackdrop.hidden=false;
+  modal.innerHTML=`<h2>Quick quotation</h2><p>Calculate tarpaulin pricing using your shop rate.</p><form id="quoteForm"><div class="form-grid"><div class="field"><label>Width (ft)</label><input name="width" type="number" step="0.1" value="3" required></div><div class="field"><label>Height (ft)</label><input name="height" type="number" step="0.1" value="5" required></div><div class="field"><label>Quantity</label><input name="qty" type="number" value="1" min="1" required></div><div class="field"><label>Rate / sq ft</label><input name="rate" type="number" value="25" required></div><div class="field"><label>Design fee</label><input name="design" type="number" value="100"></div><div class="field"><label>Other fee</label><input name="other" type="number" value="0"></div><div class="field full"><div class="revenue-box" style="margin:0"><div class="muted" style="color:#b6d2c4">ESTIMATED QUOTE</div><div class="big" id="quoteTotal">₱475</div><div id="quoteBreakdown" style="font-size:12px;color:#c6ded2">15 sq ft × ₱25 + ₱100 design</div></div></div></div><div class="modal-actions"><button type="button" class="soft-btn" onclick="document.getElementById('modalBackdrop').hidden=true">Close</button><button type="button" class="primary-btn" id="copyQuote">Copy quote</button></div></form>`;
+  const form=document.getElementById('quoteForm');
+  function calc(){const f=new FormData(form);const area=Number(f.get('width'))*Number(f.get('height'));const total=(area*Number(f.get('rate'))*Number(f.get('qty')))+Number(f.get('design')||0)+Number(f.get('other')||0);document.getElementById('quoteTotal').textContent=money(total);document.getElementById('quoteBreakdown').textContent=`${area.toFixed(1)} sq ft × ${money(Number(f.get('rate')))} × ${f.get('qty')} + fees`;return total;}
+  form.addEventListener('input',calc);document.getElementById('copyQuote').addEventListener('click',async()=>{const total=calc();try{await navigator.clipboard.writeText(`Inkvio quotation: ${money(total)}`);showToast('Quotation copied');}catch{showToast(`Quotation: ${money(total)}`)}});
+}
+
+renderDashboard();
