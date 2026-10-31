@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Inkvio — Print Shop Business OS</title>
+  <meta name="description" content="Inkvio is a smart print shop management SaaS for orders, quotations, design approvals, production, inventory, payments and analytics." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand-wrap">
+        <div class="brand-mark">I</div>
+        <div>
+          <div class="brand">Inkvio</div>
+          <div class="brand-sub">Print Business OS</div>
+        </div>
+      </div>
+
+      <div class="shop-switcher">
+        <div class="shop-icon">AP</div>
+        <div class="shop-copy">
+          <strong>Auntie's Print Hub</strong>
+          <span>Main branch</span>
+        </div>
+        <button class="icon-btn" aria-label="Switch shop">⌄</button>
+      </div>
+
+      <nav class="nav" id="nav">
+        <button class="nav-item active" data-view="dashboard"><span>⌂</span>Dashboard</button>
+        <button class="nav-item" data-view="orders"><span>▤</span>Orders <b class="pill">12</b></button>
+        <button class="nav-item" data-view="design"><span>✦</span>Design Queue <b class="pill warn">5</b></button>
+        <button class="nav-item" data-view="production"><span>▦</span>Print Queue <b class="pill teal">7</b></button>
+        <button class="nav-item" data-view="customers"><span>◎</span>Customers</button>
+        <button class="nav-item" data-view="catalog"><span>◫</span>Products & Services</button>
+        <button class="nav-item" data-view="inventory"><span>◈</span>Inventory</button>
+        <button class="nav-item" data-view="payments"><span>₱</span>Payments</button>
+        <button class="nav-item" data-view="reports"><span>◒</span>Reports</button>
+      </nav>
+
+      <div class="sidebar-bottom">
+        <button class="nav-item" data-view="settings"><span>⚙</span>Settings</button>
+        <div class="user-card">
+          <div class="avatar">JM</div>
+          <div><strong>Jamie Mejia</strong><span>Owner</span></div>
+          <button class="icon-btn">⋯</button>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">FRIDAY, OCTOBER 31</p>
+          <h1 id="pageTitle">Good morning, Jamie.</h1>
+          <p id="pageSubtitle">Here’s what’s happening in your print shop today.</p>
+        </div>
+        <div class="top-actions">
+          <button class="soft-btn" id="quickQuoteBtn">＋ Quick quotation</button>
+          <button class="primary-btn" id="newOrderBtn">＋ New order</button>
+          <button class="round-btn" id="notificationBtn">♢<span class="notify-dot"></span></button>
+        </div>
+      </header>
+
+      <section id="viewContainer"></section>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="modalBackdrop" hidden>
+    <div class="modal" id="modal"></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
